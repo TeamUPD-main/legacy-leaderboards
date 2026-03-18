@@ -1,6 +1,6 @@
 from django.db import models
 
-
+### Types & Filters
 
 class StatsType(models.IntegerChoices):
     TRAVELLING = 0, "Travelling"
@@ -21,7 +21,7 @@ class FilterMode(models.IntegerChoices):
     MY_SCORE = 1, "My Score"
     TOP_RANK = 2, "Top Rank"
 
-
+### General Models
 
 class Player(models.Model):
     uid = models.CharField(max_length=64, unique=True)
@@ -57,7 +57,7 @@ class LeaderboardEntry(models.Model):
         unique_together = ("player", "leaderboard")
         ordering = ["rank"]
 
-
+## Stats Models
 
 class KillsStats(models.Model):
     entry = models.OneToOneField(LeaderboardEntry, on_delete=models.CASCADE, related_name="kills")
@@ -101,3 +101,13 @@ class TravellingStats(models.Model):
     fallen = models.PositiveBigIntegerField(default=0)
     minecart = models.PositiveBigIntegerField(default=0)
     boat = models.PositiveBigIntegerField(default=0)
+
+
+### Achievement Models
+
+class Achievement(models.Model):
+    id = models.PositiveIntegerField(primary_key=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+    how_to = models.TextField()
+    score = models.PositiveIntegerField()
