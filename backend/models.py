@@ -1,9 +1,6 @@
 from django.db import models
 
 
-# -------------------------
-# ENUMS (from your C++ code)
-# -------------------------
 
 class StatsType(models.IntegerChoices):
     TRAVELLING = 0, "Travelling"
@@ -25,9 +22,6 @@ class FilterMode(models.IntegerChoices):
     TOP_RANK = 2, "Top Rank"
 
 
-# -------------------------
-# CORE MODELS
-# -------------------------
 
 class Player(models.Model):
     uid = models.CharField(max_length=64, unique=True)
@@ -64,9 +58,6 @@ class LeaderboardEntry(models.Model):
         ordering = ["rank"]
 
 
-# -------------------------
-# STATS MODELS (STRUCTS)
-# -------------------------
 
 class KillsStats(models.Model):
     entry = models.OneToOneField(LeaderboardEntry, on_delete=models.CASCADE, related_name="kills")
