@@ -3,11 +3,76 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Player, Leaderboard, LeaderboardEntry
+from .models import Player, Leaderboard, LeaderboardEntry, StatsType, DifficultyType
 from .serializers import (
     LeaderboardEntrySerializer,
     RegisterScoreSerializer,
 )
+
+DIFFICULTY_MAP = {
+    "peaceful": DifficultyType.PEACEFUL,
+    "easy": DifficultyType.EASY,
+    "normal": DifficultyType.NORMAL,
+    "hard": DifficultyType.HARD,
+}
+
+TYPE_MAP = {
+    "travelling": StatsType.TRAVELLING,
+    "mining": StatsType.MINING,
+    "farming": StatsType.FARMING,
+    "kills": StatsType.KILLS,
+}
+
+
+def get_leaderboard_from_query_params(request):
+    difficulty_key = str(request.query_params.get("difficulty", "")).lower()
+    type_key = str(request.query_params.get("type", "")).lower()
+
+    if not difficulty_key or not type_key:
+        return None, Response(
+            {
+                "error": "Missing required query params: difficulty, type",
+                "allowed_difficulty": list(DIFFICULTY_MAP.keys()),
+                "allowed_type": list(TYPE_MAP.keys()),
+            },
+            status=400,
+        )
+
+    if difficulty_key not in DIFFICULTY_MAP:
+        return None, Response(
+            {
+                "error": "Invalid difficulty",
+                "allowed_difficulty": list(DIFFICULTY_MAP.keys()),
+            },
+            status=400,
+        )
+
+    if type_key not in TYPE_MAP:
+        return None, Response(
+            {
+                "error": "Invalid type",
+                "allowed_type": list(TYPE_MAP.keys()),
+            },
+            status=400,
+        )
+
+    difficulty = DIFFICULTY_MAP[difficulty_key]
+    stats_type = TYPE_MAP[type_key]
+
+    try:
+        leaderboard = Leaderboard.objects.get(
+            difficulty=difficulty,
+            stats_type=stats_type,
+        )
+    except Leaderboard.DoesNotExist:
+        return None, Response(
+            {
+                "error": "Leaderboard not found for provided difficulty and type"
+            },
+            status=404,
+        )
+
+    return leaderboard, None
 
 class WriteStatsView(APIView):
     def post(self, request):
@@ -34,12 +99,15 @@ class WriteStatsView(APIView):
     
 class TopRankView(APIView):
     def get(self, request):
-        leaderboard_id = request.query_params.get("leaderboard_id")
+        leaderboard, error_response = get_leaderboard_from_query_params(request)
+        if error_response:
+            return error_response
+
         start = int(request.query_params.get("start", 0))
         count = int(request.query_params.get("count", 10))
 
         entries = LeaderboardEntry.objects.filter(
-            leaderboard_id=leaderboard_id
+            leaderboard=leaderboard
         ).order_by("rank")[start:start + count]
 
         serializer = LeaderboardEntrySerializer(entries, many=True)
@@ -47,8 +115,10 @@ class TopRankView(APIView):
     
 class FriendsLeaderboardView(APIView):
     def get(self, request):
-        uid = request.query_params.get("uid")
-        leaderboard_id = request.query_params.get("leaderboard_id")
+        uid = request.query_params.get("user_id")
+        leaderboard, error_response = get_leaderboard_from_query_params(request)
+        if error_response:
+            return error_response
 
         try:
             player = Player.objects.get(uid=uid)
@@ -58,7 +128,7 @@ class FriendsLeaderboardView(APIView):
         friends = player.friends.all()
 
         entries = LeaderboardEntry.objects.filter(
-            leaderboard_id=leaderboard_id,
+            leaderboard=leaderboard,
             player__in=friends
         ).order_by("rank")
 
@@ -67,15 +137,18 @@ class FriendsLeaderboardView(APIView):
     
 class MyScoreView(APIView):
     def get(self, request):
-        uid = request.query_params.get("uid")
-        leaderboard_id = request.query_params.get("leaderboard_id")
+        uid = request.query_params.get("user_id")
+        leaderboard, error_response = get_leaderboard_from_query_params(request)
+        if error_response:
+            return error_response
+
         count = int(request.query_params.get("count", 5))
 
         try:
             player = Player.objects.get(uid=uid)
             entry = LeaderboardEntry.objects.get(
                 player=player,
-                leaderboard_id=leaderboard_id
+                leaderboard=leaderboard
             )
         except (Player.DoesNotExist, LeaderboardEntry.DoesNotExist):
             return Response({"error": "Not found"}, status=404)
@@ -84,7 +157,7 @@ class MyScoreView(APIView):
         end_rank = entry.rank + count
 
         entries = LeaderboardEntry.objects.filter(
-            leaderboard_id=leaderboard_id,
+            leaderboard=leaderboard,
             rank__gte=start_rank,
             rank__lte=end_rank
         ).order_by("rank")
@@ -95,7 +168,6 @@ class MyScoreView(APIView):
 class LeaderboardView(APIView):
     def get(self, request):
         mode = int(request.query_params.get("mode"))
-        leaderboard_id = request.query_params.get("leaderboard_id")
 
         if mode == 0:  # Friends
             return FriendsLeaderboardView().get(request)

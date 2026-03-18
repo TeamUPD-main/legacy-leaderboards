@@ -37,7 +37,7 @@ class TravellingStatsSerializer(serializers.ModelSerializer):
         model = TravellingStats
         exclude = ["id", "entry"]
 
-from .models import StatsType
+from .models import StatsType, DifficultyType
 
 class StatsDataSerializer(serializers.Serializer):
     type = serializers.SerializerMethodField()
@@ -76,21 +76,52 @@ class LeaderboardEntrySerializer(serializers.ModelSerializer):
     
 class RegisterScoreSerializer(serializers.Serializer):
     player_uid = serializers.CharField()
-    leaderboard_id = serializers.IntegerField()
+    difficulty = serializers.CharField()
+    type = serializers.CharField()
     score = serializers.IntegerField()
-    difficulty = serializers.IntegerField()
-    stats_type = serializers.IntegerField()
     stats = serializers.DictField()
 
-    def create(self, validated_data):
-        from .models import StatsType
+    DIFFICULTY_MAP = {
+        "peaceful": DifficultyType.PEACEFUL,
+        "easy": DifficultyType.EASY,
+        "normal": DifficultyType.NORMAL,
+        "hard": DifficultyType.HARD,
+    }
 
+    TYPE_MAP = {
+        "travelling": StatsType.TRAVELLING,
+        "mining": StatsType.MINING,
+        "farming": StatsType.FARMING,
+        "kills": StatsType.KILLS,
+    }
+
+    def create(self, validated_data):
         player, _ = Player.objects.get_or_create(
             uid=validated_data["player_uid"]
         )
 
-        leaderboard = Leaderboard.objects.get(
-            id=validated_data["leaderboard_id"]
+        difficulty_key = str(validated_data["difficulty"]).lower()
+        type_key = str(validated_data["type"]).lower()
+
+        try:
+            difficulty = self.DIFFICULTY_MAP[difficulty_key]
+        except KeyError as exc:
+            allowed = ", ".join(self.DIFFICULTY_MAP.keys())
+            raise serializers.ValidationError(
+                {"difficulty": f"Invalid difficulty. Allowed values: {allowed}"}
+            ) from exc
+
+        try:
+            stats_type = self.TYPE_MAP[type_key]
+        except KeyError as exc:
+            allowed = ", ".join(self.TYPE_MAP.keys())
+            raise serializers.ValidationError(
+                {"type": f"Invalid type. Allowed values: {allowed}"}
+            ) from exc
+
+        leaderboard, _ = Leaderboard.objects.get_or_create(
+            stats_type=stats_type,
+            difficulty=difficulty,
         )
 
         entry = LeaderboardEntry.objects.create(
@@ -101,7 +132,6 @@ class RegisterScoreSerializer(serializers.Serializer):
         )
 
         stats = validated_data["stats"]
-        stats_type = validated_data["stats_type"]
 
         if stats_type == StatsType.KILLS:
             KillsStats.objects.create(entry=entry, **stats)

@@ -12,6 +12,13 @@ class StatsType(models.IntegerChoices):
     KILLS = 3, "Kills"
 
 
+class DifficultyType(models.IntegerChoices):
+    PEACEFUL = 0, "Peaceful"
+    EASY = 1, "Easy"
+    NORMAL = 2, "Normal"
+    HARD = 3, "Hard"
+
+
 class FilterMode(models.IntegerChoices):
     FRIENDS = 0, "Friends"
     MY_SCORE = 1, "My Score"
@@ -34,7 +41,7 @@ class Player(models.Model):
 
 class Leaderboard(models.Model):
     stats_type = models.IntegerField(choices=StatsType.choices)
-    difficulty = models.IntegerField()
+    difficulty = models.IntegerField(choices=DifficultyType.choices)
 
     class Meta:
         unique_together = ("stats_type", "difficulty")

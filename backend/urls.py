@@ -10,7 +10,7 @@ from .views import (
 urlpatterns = [
     path("write/", WriteStatsView.as_view()),
     path("top/", TopRankView.as_view()),
-    path("friends/", FriendsLeaderboardView.as_view()),
+    path("api/leaderboard/friends/", FriendsLeaderboardView.as_view()),
     path("my-score/", MyScoreView.as_view()),
-    path("", LeaderboardView.as_view()),
+    path("api/leaderboard/", LeaderboardView.as_view()),
 ]
