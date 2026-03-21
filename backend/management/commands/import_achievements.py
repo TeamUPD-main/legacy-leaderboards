@@ -137,20 +137,18 @@ class Command(BaseCommand):
                 continue
 
             try:
-                achievement_id = int(achievement_id_raw)
+                achievement_id = int(achievement_id_raw) - 1  # convert from 1-based to 0-based ID
             except ValueError:
                 skipped_count += 1
                 continue
 
             title_id = int(node.get("titleStringId", "0"))
             description_id = int(node.get("descriptionStringId", "0"))
-            how_to_id = int(node.get("unachievedStringId", "0"))
             score = int(node.get("cred", "0"))
 
             defaults = {
                 "name": localized_lookup.get(title_id, ""),
                 "description": localized_lookup.get(description_id, ""),
-                "how_to": localized_lookup.get(how_to_id, ""),
                 "score": score,
             }
 
