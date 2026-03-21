@@ -1,8 +1,9 @@
 from pathlib import Path
 
 from django.conf import settings
-from django.contrib.auth import authenticate, login as auth_login
+from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import F, Sum
 from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -38,11 +39,13 @@ class CreateAccountView(View):
                 "subheading": "Start tracking your progress",
                 "button_text": "Create Account",
                 "mode": "register",
+                "uid": "",
             },
         )
 
     def post(self, request):
         username = request.POST.get("username", "").strip()
+        uid = request.POST.get("uid", "").strip()
         password = request.POST.get("password", "")
         confirm_password = request.POST.get("confirm_password", "")
 
@@ -53,10 +56,11 @@ class CreateAccountView(View):
             "button_text": "Create Account",
             "mode": "register",
             "username": username,
+            "uid": uid,
         }
 
-        if not username or not password:
-            context["error"] = "Username and password are required."
+        if not username or not uid or not password:
+            context["error"] = "Username, UID, and password are required."
             return render(request, self.template_name, context, status=400)
 
         if password != confirm_password:
@@ -67,7 +71,20 @@ class CreateAccountView(View):
             context["error"] = "That username is already taken."
             return render(request, self.template_name, context, status=400)
 
-        User.objects.create_user(username=username, password=password)
+        with transaction.atomic():
+            existing_player = Player.objects.select_for_update().filter(uid=uid).first()
+            if existing_player and existing_player.user_id is not None:
+                context["error"] = "That UID is already linked to another account."
+                return render(request, self.template_name, context, status=400)
+
+            user = User.objects.create_user(username=username, password=password)
+
+            if existing_player:
+                existing_player.user = user
+                existing_player.save(update_fields=["user"])
+            else:
+                Player.objects.create(user=user, uid=uid, name=username)
+
         return redirect("login")
 
 
@@ -117,6 +134,16 @@ class LoginView(View):
 
         context["success"] = f"You are now logged in as {user.username}."
         return render(request, self.template_name, context)
+
+
+class LogoutView(View):
+    def get(self, request):
+        auth_logout(request)
+        return redirect("login")
+
+    def post(self, request):
+        auth_logout(request)
+        return redirect("login")
 
 
 class ApiRootView(APIView):

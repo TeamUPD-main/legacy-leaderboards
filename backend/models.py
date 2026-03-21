@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MaxValueValidator
+from django.contrib.auth.models import User
 
 ### Types & Filters
 
@@ -27,6 +28,7 @@ class FilterMode(models.IntegerChoices):
 ### General Models
 
 class Player(models.Model):
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="player_profile")
     uid = models.CharField(max_length=64, unique=True)
     name = models.CharField(max_length=255)
 
