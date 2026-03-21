@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import transaction
 from .models import (
     Achievement,
     Player,
@@ -156,6 +157,32 @@ class RegisterScoreSerializer(serializers.Serializer):
         "kills": StatsType.KILLS,
     }
 
+    def _upsert_stats(self, entry, stats_type, stats):
+        if stats_type == StatsType.KILLS:
+            KillsStats.objects.update_or_create(entry=entry, defaults=stats)
+        elif stats_type == StatsType.MINING:
+            MiningStats.objects.update_or_create(entry=entry, defaults=stats)
+        elif stats_type == StatsType.FARMING:
+            FarmingStats.objects.update_or_create(entry=entry, defaults=stats)
+        elif stats_type == StatsType.TRAVELLING:
+            TravellingStats.objects.update_or_create(entry=entry, defaults=stats)
+
+    def _recalculate_leaderboard_ranks(self, leaderboard):
+        entries = list(
+            LeaderboardEntry.objects.select_for_update()
+            .filter(leaderboard=leaderboard)
+            .order_by("-total_score", "created_at", "id")
+        )
+
+        changed_entries = []
+        for index, ranked_entry in enumerate(entries, start=1):
+            if ranked_entry.rank != index:
+                ranked_entry.rank = index
+                changed_entries.append(ranked_entry)
+
+        if changed_entries:
+            LeaderboardEntry.objects.bulk_update(changed_entries, ["rank"])
+
     def create(self, validated_data):
         player, _ = Player.objects.get_or_create(
             uid=validated_data["player_uid"]
@@ -180,31 +207,33 @@ class RegisterScoreSerializer(serializers.Serializer):
                 {"type": f"Invalid type. Allowed values: {allowed}"}
             ) from exc
 
-        leaderboard, _ = Leaderboard.objects.get_or_create(
-            stats_type=stats_type,
-            difficulty=difficulty,
-        )
+        with transaction.atomic():
+            leaderboard, _ = Leaderboard.objects.get_or_create(
+                stats_type=stats_type,
+                difficulty=difficulty,
+            )
 
-        entry = LeaderboardEntry.objects.create(
-            player=player,
-            leaderboard=leaderboard,
-            total_score=validated_data["score"],
-            rank=0,  # compute later
-        )
+            # Serialize writes per leaderboard to avoid concurrent rank races.
+            leaderboard = Leaderboard.objects.select_for_update().get(pk=leaderboard.pk)
 
-        stats = validated_data["stats"]
+            entry, created = LeaderboardEntry.objects.select_for_update().get_or_create(
+                player=player,
+                leaderboard=leaderboard,
+                defaults={
+                    "total_score": validated_data["score"],
+                    "rank": 0,
+                },
+            )
 
-        if stats_type == StatsType.KILLS:
-            KillsStats.objects.create(entry=entry, **stats)
+            if not created and entry.total_score != validated_data["score"]:
+                entry.total_score = validated_data["score"]
+                entry.save(update_fields=["total_score"])
 
-        elif stats_type == StatsType.MINING:
-            MiningStats.objects.create(entry=entry, **stats)
+            self._upsert_stats(entry, stats_type, validated_data["stats"])
+            self._recalculate_leaderboard_ranks(leaderboard)
+            entry.refresh_from_db(fields=["rank", "total_score"])
 
-        elif stats_type == StatsType.FARMING:
-            FarmingStats.objects.create(entry=entry, **stats)
-
-        elif stats_type == StatsType.TRAVELLING:
-            TravellingStats.objects.create(entry=entry, **stats)
+        self.was_created = created
 
         return entry
 

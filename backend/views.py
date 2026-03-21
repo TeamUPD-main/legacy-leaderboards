@@ -347,19 +347,15 @@ class WriteStatsView(APIView):
 
         if serializer.is_valid():
             entry = serializer.save()
-
-            # 🔥 Recalculate rank
-            better_players = LeaderboardEntry.objects.filter(
-                leaderboard=entry.leaderboard,
-                total_score__gt=entry.total_score
-            ).count()
-
-            entry.rank = better_players + 1
-            entry.save()
+            response_status = (
+                status.HTTP_201_CREATED
+                if getattr(serializer, "was_created", False)
+                else status.HTTP_200_OK
+            )
 
             return Response(
                 LeaderboardEntrySerializer(entry).data,
-                status=status.HTTP_201_CREATED
+                status=response_status
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

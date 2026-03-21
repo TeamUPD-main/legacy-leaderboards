@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.test import override_settings
 from rest_framework.test import APIClient
 
 from .models import Achievement, DifficultyType, KillsStats, Leaderboard, LeaderboardEntry, Player, PlayerAchievement
@@ -189,3 +190,93 @@ class AchievementListViewTests(TestCase):
 	def test_achievement_list_post_not_allowed(self):
 		response = self.client.post("/api/achievement/list", {}, format="json")
 		self.assertEqual(response.status_code, 405)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class WriteStatsViewTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+
+	def test_write_stats_upserts_existing_entry(self):
+		payload = {
+			"player_uid": "player-upsert",
+			"difficulty": "normal",
+			"type": "kills",
+			"score": 25,
+			"stats": {
+				"zombie": 1,
+				"skeleton": 1,
+				"creeper": 1,
+				"spider": 1,
+				"spider_jockey": 0,
+				"zombie_pigman": 0,
+				"slime": 0,
+			},
+		}
+
+		first_response = self.client.post("/api/leaderboard/write/", payload, format="json")
+		self.assertEqual(first_response.status_code, 201)
+
+		payload["score"] = 40
+		payload["stats"]["zombie"] = 5
+
+		second_response = self.client.post("/api/leaderboard/write/", payload, format="json")
+		self.assertEqual(second_response.status_code, 200)
+
+		player = Player.objects.get(uid="player-upsert")
+		entries = LeaderboardEntry.objects.filter(player=player)
+		self.assertEqual(entries.count(), 1)
+		self.assertEqual(entries.first().total_score, 40)
+		self.assertEqual(entries.first().rank, 1)
+
+		self.assertEqual(player.leaderboardentry_set.first().kills.zombie, 5)
+
+	def test_write_stats_recalculates_all_ranks(self):
+		alpha_payload = {
+			"player_uid": "alpha",
+			"difficulty": "normal",
+			"type": "kills",
+			"score": 20,
+			"stats": {
+				"zombie": 1,
+				"skeleton": 0,
+				"creeper": 0,
+				"spider": 0,
+				"spider_jockey": 0,
+				"zombie_pigman": 0,
+				"slime": 0,
+			},
+		}
+		bravo_payload = {
+			"player_uid": "bravo",
+			"difficulty": "normal",
+			"type": "kills",
+			"score": 10,
+			"stats": {
+				"zombie": 1,
+				"skeleton": 0,
+				"creeper": 0,
+				"spider": 0,
+				"spider_jockey": 0,
+				"zombie_pigman": 0,
+				"slime": 0,
+			},
+		}
+
+		self.client.post("/api/leaderboard/write/", alpha_payload, format="json")
+		self.client.post("/api/leaderboard/write/", bravo_payload, format="json")
+
+		bravo_payload["score"] = 30
+		update_response = self.client.post("/api/leaderboard/write/", bravo_payload, format="json")
+		self.assertEqual(update_response.status_code, 200)
+
+		leaderboard = Leaderboard.objects.get(stats_type=3, difficulty=DifficultyType.NORMAL)
+		entries = list(
+			LeaderboardEntry.objects.filter(leaderboard=leaderboard).order_by("rank")
+		)
+
+		self.assertEqual(len(entries), 2)
+		self.assertEqual(entries[0].player.uid, "bravo")
+		self.assertEqual(entries[0].rank, 1)
+		self.assertEqual(entries[1].player.uid, "alpha")
+		self.assertEqual(entries[1].rank, 2)
