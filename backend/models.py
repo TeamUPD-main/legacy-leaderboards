@@ -32,6 +32,8 @@ class Player(models.Model):
 
     friends = models.ManyToManyField("self", blank=True)
 
+    achievements = models.ManyToManyField("Achievement", through="PlayerAchievement", blank=True)
+
     def __str__(self):
         return self.name
 
@@ -112,5 +114,12 @@ class Achievement(models.Model):
     id = models.PositiveIntegerField(primary_key=True)
     name = models.CharField(max_length=255)
     description = models.TextField(max_length=1024)
-    how_to = models.TextField(max_length=1024)
     score = models.PositiveIntegerField(default=0)
+
+class PlayerAchievement(models.Model):
+    player = models.ForeignKey(Player, on_delete=models.CASCADE)
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
+    status = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("player", "achievement")
