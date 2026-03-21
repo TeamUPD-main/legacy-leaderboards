@@ -5,6 +5,8 @@ from .views import (
     AchievementListView,
     ApiRootView,
     CreatePlayerView,
+    CreateAccountView,
+    LoginView,
     PlayerDetailsView,
     RemoveAchievementFromPlayerView,
     WriteStatsView,
@@ -15,6 +17,8 @@ from .views import (
 )
 
 urlpatterns = [
+    path("create-account/", CreateAccountView.as_view(), name="create-account"),
+    path("login/", LoginView.as_view(), name="login"),
     path("ui/achievements", AchievementsUIView.as_view()),
     path("api/", ApiRootView.as_view()),
     path("api/achievement/list", AchievementListView.as_view()),

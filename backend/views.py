@@ -1,9 +1,13 @@
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.auth import authenticate, login as auth_login
+from django.contrib.auth.models import User
 from django.db.models import F, Sum
-from django.shortcuts import render
+from django.shortcuts import redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import URLPattern, URLResolver, get_resolver
+from django.views import View
 from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -19,6 +23,100 @@ from .serializers import (
     PlayerSerializer,
     RegisterScoreSerializer,
 )
+
+
+class CreateAccountView(View):
+    template_name = "backend/auth_form.html"
+
+    def get(self, request):
+        return render(
+            request,
+            self.template_name,
+            {
+                "page_title": "Create Account",
+                "heading": "Create Account",
+                "subheading": "Start tracking your progress",
+                "button_text": "Create Account",
+                "mode": "register",
+            },
+        )
+
+    def post(self, request):
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "")
+        confirm_password = request.POST.get("confirm_password", "")
+
+        context = {
+            "page_title": "Create Account",
+            "heading": "Create Account",
+            "subheading": "Start tracking your progress",
+            "button_text": "Create Account",
+            "mode": "register",
+            "username": username,
+        }
+
+        if not username or not password:
+            context["error"] = "Username and password are required."
+            return render(request, self.template_name, context, status=400)
+
+        if password != confirm_password:
+            context["error"] = "Passwords do not match."
+            return render(request, self.template_name, context, status=400)
+
+        if User.objects.filter(username=username).exists():
+            context["error"] = "That username is already taken."
+            return render(request, self.template_name, context, status=400)
+
+        User.objects.create_user(username=username, password=password)
+        return redirect("login")
+
+
+class LoginView(View):
+    template_name = "backend/auth_form.html"
+
+    def get(self, request):
+        return render(
+            request,
+            self.template_name,
+            {
+                "page_title": "Login",
+                "heading": "Login",
+                "subheading": "Welcome back",
+                "button_text": "Login",
+                "mode": "login",
+            },
+        )
+
+    def post(self, request):
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "")
+
+        context = {
+            "page_title": "Login",
+            "heading": "Login",
+            "subheading": "Welcome back",
+            "button_text": "Login",
+            "mode": "login",
+            "username": username,
+        }
+
+        if not username or not password:
+            context["error"] = "Username and password are required."
+            return render(request, self.template_name, context, status=400)
+
+        user = authenticate(request, username=username, password=password)
+        if user is None:
+            context["error"] = "Invalid username or password."
+            return render(request, self.template_name, context, status=401)
+
+        auth_login(request, user)
+
+        next_url = request.GET.get("next") or request.POST.get("next")
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return redirect(next_url)
+
+        context["success"] = f"You are now logged in as {user.username}."
+        return render(request, self.template_name, context)
 
 
 class ApiRootView(APIView):

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <style>
+    :root {
+      --bg: #c6d2df;
+      --panel: #dfe7f0;
+      --panel-border: #8ea0b6;
+      --field-bg: #edf4fb;
+      --field-border: #91a5ba;
+      --field-focus: #f2cc4b;
+      --text-main: #3f4f63;
+      --text-sub: #6e7f94;
+      --danger: #9f4b4b;
+      --danger-bg: #f2dddd;
+      --success: #486f4e;
+      --success-bg: #dff0df;
+      --cta-start: #90a5bd;
+      --cta-end: #6f8298;
+      --cta-border: #637486;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", "Verdana", sans-serif;
+      background:
+        radial-gradient(circle at 12% 25%, rgba(255, 255, 255, 0.45), transparent 42%),
+        linear-gradient(180deg, #bcc9d8 0%, #8ea1b6 100%);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .screen {
+      width: min(560px, 100%);
+      border: 3px solid #9cadbf;
+      background: var(--panel);
+      box-shadow:
+        inset 0 0 0 2px #f7fbff,
+        0 10px 28px rgba(34, 48, 67, 0.25);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .title {
+      text-align: center;
+      padding: 14px 20px;
+      font-size: 34px;
+      letter-spacing: 0.8px;
+      color: #6e7f93;
+      border-bottom: 2px solid #a7b7c9;
+      background: linear-gradient(180deg, #edf4fb 0%, #d6e1ed 100%);
+      text-shadow: 0 1px 0 #f7fbff;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 22px;
+      color: #95a4b6;
+      padding: 10px 12px 8px;
+      text-shadow: 0 1px 0 #f7fbff;
+    }
+
+    .card {
+      margin: 0 16px 16px;
+      border: 2px solid var(--panel-border);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #edf4fb 0%, #d3dfeb 100%);
+      padding: 16px;
+    }
+
+    .notice {
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .notice.error {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid #d8a9a9;
+    }
+
+    .notice.success {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid #a9c7ad;
+    }
+
+    .field {
+      margin-bottom: 12px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 14px;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+    }
+
+    .field input {
+      width: 100%;
+      border: 2px solid var(--field-border);
+      background: var(--field-bg);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--text-main);
+      font-size: 16px;
+      outline: none;
+      box-shadow: inset 0 1px 0 #ffffff;
+    }
+
+    .field input:focus {
+      border-color: var(--field-focus);
+      box-shadow: 0 0 0 2px rgba(242, 204, 75, 0.3), inset 0 1px 0 #ffffff;
+    }
+
+    .actions {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .button {
+      appearance: none;
+      border: 2px solid var(--cta-border);
+      background: linear-gradient(180deg, var(--cta-start) 0%, var(--cta-end) 100%);
+      color: #f6f9fd;
+      font-size: 16px;
+      border-radius: 6px;
+      padding: 10px 14px;
+      cursor: pointer;
+      text-shadow: 0 1px 0 rgba(31, 45, 62, 0.4);
+    }
+
+    .button:hover {
+      filter: brightness(1.04);
+    }
+
+    .link {
+      color: #58708c;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .link:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 520px) {
+      .title {
+        font-size: 26px;
+      }
+
+      .subtitle {
+        font-size: 19px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="screen">
+    <div class="title">{{ heading }}</div>
+    <div class="subtitle">{{ subheading }}</div>
+
+    <section class="card">
+      {% if error %}
+        <div class="notice error">{{ error }}</div>
+      {% endif %}
+      {% if success %}
+        <div class="notice success">{{ success }}</div>
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        {% if request.GET.next %}
+          <input type="hidden" name="next" value="{{ request.GET.next }}">
+        {% endif %}
+
+        <div class="field">
+          <label for="username">Username</label>
+          <input
+            id="username"
+            type="text"
+            name="username"
+            value="{{ username|default:'' }}"
+            autocomplete="username"
+            required
+          >
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            name="password"
+            autocomplete="current-password"
+            required
+          >
+        </div>
+
+        {% if mode == "register" %}
+          <div class="field">
+            <label for="confirm_password">Confirm Password</label>
+            <input
+              id="confirm_password"
+              type="password"
+              name="confirm_password"
+              autocomplete="new-password"
+              required
+            >
+          </div>
+        {% endif %}
+
+        <div class="actions">
+          <button class="button" type="submit">{{ button_text }}</button>
+          {% if mode == "register" %}
+            <a class="link" href="{% url 'login' %}">Already have an account? Login</a>
+          {% else %}
+            <a class="link" href="{% url 'create-account' %}">Need an account? Create one</a>
+          {% endif %}
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>
