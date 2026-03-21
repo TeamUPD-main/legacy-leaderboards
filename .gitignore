@@ -4,3 +4,4 @@ migrations
 *.gameconfig
 *.env
 *.log
+staticfiles

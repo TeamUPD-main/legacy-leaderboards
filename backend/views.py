@@ -230,7 +230,7 @@ class AchievementsUIView(APIView):
                 achievement_id = int(icon_file.stem.split("_")[-1])
             except ValueError:
                 continue
-            icon_map[achievement_id] = f"{settings.MEDIA_URL}achievements/{icon_file.name}"
+            icon_map[achievement_id] = f"achievements/{icon_file.name}"
 
         return icon_map
 
