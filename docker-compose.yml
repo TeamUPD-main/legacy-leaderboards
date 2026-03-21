@@ -1,0 +1,13 @@
+services:
+  legacy-leaderboards:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: legacy-leaderboards
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=$SECRET_KEY
+      - DEBUG=$DEBUG
+    volumes:
+      - ./db.sqlite3:/app/db.sqlite3

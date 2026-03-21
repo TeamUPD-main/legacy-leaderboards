@@ -24,7 +24,7 @@ class CreatePlayerViewTests(TestCase):
 		Player.objects.create(uid="dup-uid", name="Existing")
 
 		response = self.client.post(
-			"/api/player/create",
+			"/api/player/add",
 			{"uid": "dup-uid", "name": "Other"},
 			format="json",
 		)
@@ -38,7 +38,7 @@ class PlayerDetailsViewTests(TestCase):
 		self.client = APIClient()
 
 	def test_get_player_details_requires_uid(self):
-		response = self.client.get("/api/player/")
+		response = self.client.get("/api/player")
 		self.assertEqual(response.status_code, 400)
 		self.assertEqual(response.data["error"], "Missing required query param: uid")
 
@@ -63,7 +63,7 @@ class PlayerDetailsViewTests(TestCase):
 		)
 		KillsStats.objects.create(entry=entry, zombie=7)
 
-		response = self.client.get("/api/player/?uid=player-1")
+		response = self.client.get("/api/player?uid=player-1")
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.data["uid"], "player-1")
